@@ -70,8 +70,8 @@ def test_ode15s_tspan():
     tout = [np.round(x,2) for x in tout]
     yout = [[np.round(b,2) for b in a] for a in yout]
     
-    assert np.all(np.asarry(tout)==np.asarry(t))
-    assert np.all(np.asarry(yout)==np.asarry(y))
+    assert np.all(np.asarray(tout)==np.asarray(t))
+    assert np.all(np.asarray(yout)==np.asarray(y))
     
 def test_ode15s_tvec():
     tspan = np.linspace(0,10,11)
@@ -91,4 +91,4 @@ def test_ode15s_tvec():
     tout = [int(x*100)/100. for x in tout]
     yout = [[np.round(b,2) for b in a] for a in yout]
     
-    assert np.all(np.asarry(yout)==np.asarry(y))
+    assert np.all(np.asarray(yout)==np.asarray(y))
