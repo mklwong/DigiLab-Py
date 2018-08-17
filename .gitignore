@@ -1,0 +1,8 @@
+build
+dist
+*.egg-info
+*.pyc
+coverage_report
+.coverage
+test_report.html
+test.xml
