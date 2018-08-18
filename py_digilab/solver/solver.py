@@ -6,6 +6,8 @@ Created on Wed Aug 15 21:29:31 2018
 """
 
 from scipy.integrate import ode
+from scipy.stats import norm
+from functools import partial
 import numpy as np
 
 def make_solver(func):
@@ -71,5 +73,17 @@ def ode15s(odefunc,tspan,y0,options=None,tol=0.01):
 def ode45(odefunc):
    return ode(odefunc).set_integrator('dopri5')
 
-def odefun(t,y):
-    return np.asarray([-0.5*y[0]+0.1*y[1],0.5*y[0]-0.1*y[1]])
+def findTC(model,tspan,y0=None,k=None,solver=ode15s,ode_args={},init=True):
+    if init:
+        base_odefun = model.get_odefun()
+        empty_model = model.copy().reset_params()
+        empty_model.params['Km'] = model.params['Km'] 
+        def init_sigma(t):
+            return norm.pdf(t,loc=0,scale=0.1)*np.asarray(y0)*2
+        empty_model.sigma = init_sigma
+        odefun = partial(base_odefun,model=empty_model)
+        t,y = solver(odefun,[0,0.5,1],np.asarray(y0)*0)
+        y0 = y[-1,:]
+    odefun = partial(base_odefun,model=model)
+    t,y = solver(odefun,tspan,y0)
+    return t,y
