@@ -11,36 +11,57 @@ from py_digilab.solver.equation import dQSSA
 from copy import deepcopy
 
 class DigilabModelTemplate(object):
-    def __init__(self):
+    def __init__(self,reactions=[]):
         self.reset_params()
+        self._species = {}
+        self._compartments = {}
+        for reaction in reactions:
+            self.add_reaction(reaction)
+        
+    def copy(self):
+        return deepcopy(self)
+    
+    def add_reaction(self,reaction):
+        self.add_species(reaction.reactants+reaction.products+reaction.enzymes)
+        self.reaction += [reaction]
+        return self
+    
+    def add_species(self,_species):
+        staging = {}
+        for species in _species:
+            if species in staging and not staging[species]._like_(species):
+                raise(ValueError("New species '{}' ID same as added species '{}', but names or compartment location are different. Check species input and try again.".format(species,staging[species])))
+            elif species in self._species and not self._species[species]._like_(species):
+                raise(ValueError("New species '{}' ID same as existing model species '{}', but names compartment location are different. Check species input and try again.".format(species,self._species[species])))
+            else:
+                staging[species] = species
+        self._species.update(staging)
+        self.species = self._species.keys()
+    
+    def add_compartment(self,compartments):
+        staging = {}
+        for compartment in compartments:
+            if compartment in staging and not staging[compartment]._like_(compartment):
+                raise(ValueError("New compartment '{}' ID same a added compartment '{}', but names different. Check compartment input and try again.".format(compartment,staging[compartment])))
+            elif compartment in self._compartments and not self._compartments[compartment]._like_(compartment):
+                raise(ValueError("New compartment '{}' ID same as existing model compartment '{}', but names different. Check compartment input and try again.".format(compartment,self._species[compartment])))
+            else:
+                staging[compartment] = compartment
+        self._compartments.update(staging)
+        self.compartments = self._compartments.keys()
+    
+    def reset_params(self):
+        raise NotImplemented('reset_parameter not implemented.')
+    
+    def consolidate_params(self):
+        raise NotImplemented('consolidate_parameter not implemented.')
     
     def get_odefun(self):
         raise NotImplemented('get_odefun not implemented for this model. Must return a function that takes in t, y and model as inputs.')
     
-    def reset_params(self):
-        raise NotImplemented('parameter reset not implemented.')
-    
-    def copy(self):
-        raise NotImplemented('copy for this model not implemented.')
-    
 class DigilabModel(DigilabModelTemplate):
-    def __init__(self,species=[],reactions=[],compartments=[]):
-        super(DigilabModel,self).__init__()
-        self.species = species
-        self.reactions = reactions
-        self.compartments = compartments
-    
-    def add_reaction(self,reaction):
-        return self
-    
     def sigma(self,t):
         return np.asarray([0,0,0,0])
-    
-    def copy(self):
-        new_model = DigilabModel()
-        new_model.param = deepcopy(self.params)
-        new_model.compartment = deepcopy(self.compartment)
-        return new_model
     
     def reset_params(self):
         raw_params = {}
@@ -77,14 +98,6 @@ class DigilabModel(DigilabModelTemplate):
         
     def get_odefun(self):
         return dQSSA
-    
-class DigilabModel_test(DigilabModel):
-    def set_test(self):
-        self.raw_params['k1'] = pd.DataFrame({'y':[0,3,0,3],'i_x':[3,3,2,2],'k':[1,-1,-1,1],'p':[1,1,1,1]})
-        self.raw_params['Km'] = pd.DataFrame({'y':[2,2,0,0,1,1],'i_x':[0,1,0,1,0,1],'j_x':[1,0,1,0,1,0],'Km':[-2,-2,2,2,2,2],'p':[1,1,1,1,1,1]})
-        self.compartment = np.asarray([1,1,1,1])
-        self.consolidate_params()
-        return self
     
 def sigma(t):
     return t
