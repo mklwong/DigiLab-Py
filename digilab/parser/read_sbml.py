@@ -6,7 +6,7 @@ Created on Sat Aug 18 21:41:20 2018
 """
 
 from xml.etree import ElementTree as ET
-from py_digilab.model.elements import Species, Reaction, Compartment
+from digilab.model.elements import Species, Reaction, Compartment
 import re
 
 def read_sbml(self,file):
@@ -48,4 +48,4 @@ def parse_reaction(self,reaction,species_list):
     return Reaction(**reaction)
 
 def __repr__(self):
-    return 'py_digilab:SBMLParser()'
+    return 'digilab:SBMLParser()'

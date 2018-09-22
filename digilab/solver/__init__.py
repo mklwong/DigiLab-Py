@@ -1,1 +1,1 @@
-from py_digilab.solver.solver import ode15s, ode45
+from digilab.solver.solver import ode15s, ode45

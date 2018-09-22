@@ -7,7 +7,7 @@ Created on Sat Aug 18 12:57:28 2018
 
 import numpy as np
 import pandas as pd
-from py_digilab.solver.equation import dQSSA
+from digilab.solver.equation import dQSSA
 from copy import deepcopy
 
 class DigilabModel(object):

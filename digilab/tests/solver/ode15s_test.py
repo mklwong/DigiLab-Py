@@ -5,7 +5,7 @@ Created on Sat Aug 18 12:57:28 2018
 @author: Martin
 """
 
-from py_digilab.solver import ode15s
+from digilab.solver import ode15s
 
 import numpy as np
 

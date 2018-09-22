@@ -5,7 +5,7 @@ Created on Thu Aug 16 20:52:25 2018
 @author: Martin
 """
 
-from py_digilab.solver import ode45
+from digilab.solver import ode45
 
 import numpy as np
 

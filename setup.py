@@ -16,7 +16,7 @@ VERSION = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 
 DESCRIPTION = ("Tools for performing kinetic modelling of biomolecular networks")
 
-def write_version_py(filename=r'py_digilab/version.py'):
+def write_version_py(filename=r'digilab/version.py'):
 
     cnt = """
 # THIS FILE IS GENERATED FROM SCIPY SETUP.PY

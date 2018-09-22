@@ -14,6 +14,7 @@ class DigilabModeldQSSA(DigilabModel):
     
     def reset_params(self):
         raw_params = {}
+        raw_params['k0'] = pd.DataFrame(columns=['y','k','p'])
         raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k','p'])
         raw_params['k2'] = pd.DataFrame(columns=['y','i_x','j_x','k','p'])
         raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','Km','p'])
@@ -23,7 +24,25 @@ class DigilabModeldQSSA(DigilabModel):
         return self
     
     def classify_reaction(self,reaction):
-        
+        reaction.compile = None
+        # Classify the reactions
+        if len(reaction.reactants) == 0:
+            if len(reaction.enzymes) == 0:
+                reaction.compile = synthesis
+            elif len(reaction.enzymes) == 1:
+                reaction.compile = enzymatic_synthesis
+        elif len(reaction.reactants) == 1:
+            if len(reaction.enzymes) == 0:
+                reaction.compile = unimolecular
+            elif len(reaction.enzymes) == 1:
+                reaction.compile = dQSSA_enzymatic
+        elif len(reaction.reactants) == 2:
+            if len(reaction.enzymes) == 0:
+                reaction.compile = bimolecular
+        # Raise error if no rule function applied to reaction
+        if reaction.compile is None:
+            raise(ValueError('Reaction {} does not fit into any implemented reaction patterns. Please review this reaction.'))
+        return reaction
     
     def consolidate_params(self):
         self.params = deepcopy(self.raw_params)
@@ -66,11 +85,22 @@ class DigilabModeldQSSA(DigilabModel):
         dydt = np.dot(np.linalg.inv(np.eye(y.shape[0])+Km),top)
         return dydt
 
-def unimolecular_reaction(self):
+def synthesis(model):
+    pass
+    
+def enzymatic_synthesis(model):
+    pass
+
+def dQSSA_enzymatic(model):
+    pass
+
+def unimolecular(model):
     y = [reaction.reactant[0],reaction.product[0]]
     x = [reaction.reactant[0],reaction.reactant[0]]
     df = [[pd.DataFrame({'y':[reaction.reactant[0]],'i_x':[y],'k':[],'p':[reaction.]});
-           
+
+def bimolecular(model):
+       
 def make_matrix(df,template):
     M = template.copy()
     if df.shape[0]>0:

@@ -32,7 +32,27 @@ class DigilabElement(object):
             raise(KeyError(self._call_err_str))
         return self['value']
 
-class Compartment(DigilabElement,dict):
+class CellElements(DigilabElement,dict):
+    """
+    Base class for DigilabElements that need parameter of value substitution
+    """
+    def __init__(self):
+        self['sign'] = 1
+        
+    def copy(self):
+        return deepcopy(self)
+    
+    def _like_(self,other):
+        return self['name'] == other['name'] and type(self)==type(other)
+    
+    def __neg__(self):
+        self.sign = -self.sign
+        return self
+        
+    def __mul__(self,other):
+        return self.sign*other
+    
+class Compartment(CellElements):
     """
     DigilabElements that defines a compartment.
     
@@ -57,15 +77,12 @@ class Compartment(DigilabElement,dict):
         self['id'] = self['name'].replace(' ','_')
         return self
     
-    def _like_(self,other):
-        return self['name'] == other['name'] and type(self)==type(other)
-    
     def __repr__(self):
         x = {x:y for x,y in self.items() if x in ['name','size']}
         return "Compartment({})".format(_pprint(x))
     
     
-class Species(DigilabElement,dict):
+class Species(CellElements):
     """
     DigilabElements that defines a species.
     
@@ -99,9 +116,8 @@ class Species(DigilabElement,dict):
     def __repr__(self):
         x = {x:y for x,y in self.items() if x in ['name','compartment','id']}
         return "Species({})".format(_pprint(x))
-    
-    
-class Parameter(DigilabElement,dict):
+
+class Parameter(CellElements):
     """
     DigilabElements that defines a Parameter.
     
@@ -121,9 +137,6 @@ class Parameter(DigilabElement,dict):
         self._is_copy = False
         self._sign = 1
     
-    def copy(self):
-        return deepcopy(self)
-    
     def reset_id(self):
         self['id'] = self['name'].replace(' ','_')
         return self
@@ -132,16 +145,13 @@ class Parameter(DigilabElement,dict):
         x = {x:y for x,y in self.items() if x in ['name','value']}
         return "Parameter({})".format(_pprint(x))
     
-    def _like_(self,other):
-        return self['name'] == other['name']
-    
 class Reaction(DigilabElement):
-    def __init__(self,reactants,products,kinetic_law='infer',enzyme=[],**kwargs):
-        for x in reactants + products + enzyme:
+    def __init__(self,reactants,products,kinetic_law='infer',enzymes=[],**kwargs):
+        for x in reactants + products + enzymes:
             assert(isinstance(x,Species))
         self.reactants = reactants
         self.products = products
-        self.enzyme = enzyme
+        self.enzymes = enzymes
         assert(isinstance(kinetic_law,string_types))
         self.kinetic_law = kinetic_law
         self.extras = kwargs

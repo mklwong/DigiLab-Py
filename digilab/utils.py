@@ -10,8 +10,8 @@ from digilab.model.elements import DigilabElement
 
 def like(obj1,obj2):
     """
-    This logic function checks if py_digilab objects are like each other. This
-    exists because py_digilab model elements equality is determined using the 
+    This logic function checks if digilab objects are like each other. This
+    exists because digilab model elements equality is determined using the 
     object id. However, two elements may actually be the same based on their 
     definitions (e.g. name and location of a species) while having different
     ids (e.g. if the model is an imported CellDesigner model.)
