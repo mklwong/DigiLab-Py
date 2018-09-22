@@ -7,6 +7,10 @@ Created on Sun Aug 19 22:12:58 2018
 
 import pandas as pd
 from digilab.model import DigilabModel
+from digilab.model.elements import Parameter
+import numpy as np
+from copy import deepcopy
+import types
 
 class DigilabModeldQSSA(DigilabModel):
     def sigma(self,t):
@@ -14,31 +18,46 @@ class DigilabModeldQSSA(DigilabModel):
     
     def reset_params(self):
         raw_params = {}
-        raw_params['k0'] = pd.DataFrame(columns=['y','k','p'])
+        raw_params['k0'] = pd.DataFrame(columns=['y','k'])
         raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k','p'])
         raw_params['k2'] = pd.DataFrame(columns=['y','i_x','j_x','k','p'])
-        raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','Km','p'])
+        raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','K','p'])
         raw_params['H'] = pd.DataFrame(columns=['y','i_x','E','k','K','n','p'])
         self.raw_params = raw_params
         self.consolidate_params()
         return self
     
     def classify_reaction(self,reaction):
-        reaction.compile = None
         # Classify the reactions
-        if len(reaction.reactants) == 0:
-            if len(reaction.enzymes) == 0:
-                reaction.compile = synthesis
-            elif len(reaction.enzymes) == 1:
-                reaction.compile = enzymatic_synthesis
-        elif len(reaction.reactants) == 1:
-            if len(reaction.enzymes) == 0:
-                reaction.compile = unimolecular
-            elif len(reaction.enzymes) == 1:
-                reaction.compile = dQSSA_enzymatic
-        elif len(reaction.reactants) == 2:
-            if len(reaction.enzymes) == 0:
-                reaction.compile = bimolecular
+        if reaction.kinetic_law == 'infer':
+            if len(reaction.reactants) == 0:
+                if len(reaction.enzymes) == 0:
+                    reaction.kinetic_law = 'synthesis'
+                elif len(reaction.enzymes) == 1:
+                    reaction.kinetic_law = 'enzymatic_synthesis'
+            elif len(reaction.reactants) == 1:
+                if len(reaction.enzymes) == 0:
+                    reaction.kinetic_law = 'unimolecular'
+                elif len(reaction.enzymes) == 1:
+                    reaction.kinetic_law = 'enzymatic_unimolecular'
+            elif len(reaction.reactants) == 2:
+                if len(reaction.enzymes) == 0:
+                    reaction.kinetic_law = 'bimolecular'
+        
+        # Apply the relevant compile reactions
+        if reaction.kinetic_law == 'synthesis':
+            reaction.apply_rule(synthesis)
+        elif reaction.kinetic_law == 'enzymatic_synthesis':
+            reaction.apply_rule(enzymatic_synthesis)
+        elif reaction.kinetic_law == 'unimolecular':
+            reaction.apply_rule(unimolecular)
+        elif reaction.kinetic_law == 'enzymatic_unimolecular':
+            reaction.apply_rule(enzymatic_unimolecular)
+        elif reaction.kinetic_law == 'bimolecular':
+            reaction.apply_rule(bimolecular)
+        elif reaction.kinetic_law == 'hill_unimolecular':
+            reaction.apply_rule(hill_unimolecular)
+            
         # Raise error if no rule function applied to reaction
         if reaction.compile is None:
             raise(ValueError('Reaction {} does not fit into any implemented reaction patterns. Please review this reaction.'))
@@ -53,7 +72,7 @@ class DigilabModeldQSSA(DigilabModel):
         tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
         tmp_df = self.params['Km']
         comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'p']/(tmp_df.loc[:,'Km']*self.compartment[tmp_df.loc[:,'y'].values.astype(int)])
+        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'p']/(tmp_df.loc[:,'m']*self.compartment[tmp_df.loc[:,'y'].values.astype(int)])
         tmp_df = self.params['H']
         comp = self.get_comp_two_species(tmp_df)
         tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
@@ -81,26 +100,38 @@ class DigilabModeldQSSA(DigilabModel):
         H_ratio = np.power(y[H.loc[:,'E']]/H.loc[:,'K'],H.loc[:,'n'])
         H.loc[:,'val'] = H.loc[:,'val']*H_ratio/(H_ratio+1)
         H = make_matrix(H,M_template)
-        top = np.dot(k1,y)+np.dot(k2+H,y)/model.compartment + model.sigma(t)
+        top = np.dot(k1,y)+np.dot(k2+H,y)/self.compartment + self.sigma(t)
         dydt = np.dot(np.linalg.inv(np.eye(y.shape[0])+Km),top)
         return dydt
 
-def synthesis(model):
-    pass
-    
-def enzymatic_synthesis(model):
+def synthesis(self,model):
+    k0 = Parameter(name='k0|{}'.format(rxn=self))
+    df = pd.DataFrame({'y':self.products,'k':[k0]*len(self.products)})
+    self.parameters = [k0]
+    model.parameters += self.parameters
+    model.raw_params['k0'] = pd.concat([model.raw_params['k0'],df],axis=0)
+    return self
+
+def enzymatic_synthesis(self,model):
+    k0 = Parameter(name='k0|{}'.format(rxn=self))
+    df = pd.DataFrame({'y':self.products,'i_x':self.enzymes*len(self.products),'k':[k0]*len(self.products)})
+    self.parameters = [k0]
+    model.parameters += self.parameters
+    model.raw_params['k1'] = pd.concat([model.raw_params['k1'],df],axis=0)
+    return self
+
+def unimolecular(self,model):
     pass
 
-def dQSSA_enzymatic(model):
+def enzymatic_unimolecular(self,model):
     pass
 
-def unimolecular(model):
-    y = [reaction.reactant[0],reaction.product[0]]
-    x = [reaction.reactant[0],reaction.reactant[0]]
-    df = [[pd.DataFrame({'y':[reaction.reactant[0]],'i_x':[y],'k':[],'p':[reaction.]});
+def hill_unimolecular(self,model):
+    pass
 
-def bimolecular(model):
-       
+def bimolecular(self,model):
+    pass
+
 def make_matrix(df,template):
     M = template.copy()
     if df.shape[0]>0:

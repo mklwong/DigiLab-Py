@@ -7,7 +7,6 @@ Created on Sat Aug 18 12:57:28 2018
 
 import numpy as np
 import pandas as pd
-from digilab.solver.equation import dQSSA
 from copy import deepcopy
 
 class DigilabModel(object):
@@ -66,6 +65,7 @@ class DigilabModel(object):
     
     def compile_model(self):
         self.reactions = [self.classify_reaction(reaction) for reaction in self.reactions]
+        self.parameters = []
         for reaction in self.reactions:
             reaction.compile(self)
             

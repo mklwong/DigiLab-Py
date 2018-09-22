@@ -6,7 +6,7 @@ Created on Sat Aug 18 12:57:28 2018
 """
 
 from copy import deepcopy
-
+import types
 from future.utils import string_types
 
 class DigilabElement(object):
@@ -37,6 +37,7 @@ class CellElements(DigilabElement,dict):
     Base class for DigilabElements that need parameter of value substitution
     """
     def __init__(self):
+        super(CellElements,self).__init__()
         self['sign'] = 1
         
     def copy(self):
@@ -46,11 +47,12 @@ class CellElements(DigilabElement,dict):
         return self['name'] == other['name'] and type(self)==type(other)
     
     def __neg__(self):
-        self.sign = -self.sign
-        return self
+        out = self.copy()
+        out['sign'] = -out['sign']
+        return out
         
     def __mul__(self,other):
-        return self.sign*other
+        return self['sign']*other
     
 class Compartment(CellElements):
     """
@@ -75,6 +77,9 @@ class Compartment(CellElements):
         
     def reset_id(self):
         self['id'] = self['name'].replace(' ','_')
+        return self
+    
+    def __neg__(self):
         return self
     
     def __repr__(self):
@@ -115,7 +120,11 @@ class Species(CellElements):
     
     def __repr__(self):
         x = {x:y for x,y in self.items() if x in ['name','compartment','id']}
-        return "Species({})".format(_pprint(x))
+        if self['sign']==1:
+            sign_str = ''
+        else:
+            sign_str = '-'
+        return "{}Species({})".format(sign_str,_pprint(x))
 
 class Parameter(CellElements):
     """
@@ -143,9 +152,14 @@ class Parameter(CellElements):
     
     def __repr__(self):
         x = {x:y for x,y in self.items() if x in ['name','value']}
-        return "Parameter({})".format(_pprint(x))
+        if self['sign']==1:
+            sign_str = ''
+        else:
+            sign_str = '-'
+        return "{}Parameter({})".format(sign_str,_pprint(x))
     
 class Reaction(DigilabElement):
+    compile = None
     def __init__(self,reactants,products,kinetic_law='infer',enzymes=[],**kwargs):
         for x in reactants + products + enzymes:
             assert(isinstance(x,Species))
@@ -155,6 +169,9 @@ class Reaction(DigilabElement):
         assert(isinstance(kinetic_law,string_types))
         self.kinetic_law = kinetic_law
         self.extras = kwargs
+    
+    def apply_rule(self,func):
+        self.compile = types.MethodType(func,self)
     
     def _like_(self,other):
         return self.__eq__(other)
@@ -172,10 +189,6 @@ class Reaction(DigilabElement):
         outstr = "Reaction(reactant={},product={},enzyme={},kinetic_law={},...)"\
                  .format(r,p,e,self.kinetic_law)
         return outstr
-    
-    def set_rule(self,rule):
-        self.transform = rule.__get__(self)
-        return self
     
     def __call__(self):
         raise(TypeError("'Reaction' object is not callable"))
