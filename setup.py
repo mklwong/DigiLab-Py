@@ -32,7 +32,7 @@ release = {isrelease}
 write_version_py()
 
 setuptools_kwargs = {
-    'name': 'py-digilab',
+    'name': 'digilab',
     'version': VERSION,
     'author': 'Martin Wong',
     'description': DESCRIPTION,

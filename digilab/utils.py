@@ -6,7 +6,7 @@ Created on Sun Aug 19 16:00:44 2018
 """
 
 import warnings
-from py_digilab.model.elements import DigilabElement
+from digilab.model.elements import DigilabElement
 
 def like(obj1,obj2):
     """

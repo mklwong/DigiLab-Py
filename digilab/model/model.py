@@ -10,11 +10,12 @@ import pandas as pd
 from py_digilab.solver.equation import dQSSA
 from copy import deepcopy
 
-class DigilabModelTemplate(object):
+class DigilabModel(object):
     def __init__(self,reactions=[]):
         self.reset_params()
         self._species = {}
         self._compartments = {}
+        self.reactions = []
         for reaction in reactions:
             self.add_reaction(reaction)
         
@@ -23,7 +24,7 @@ class DigilabModelTemplate(object):
     
     def add_reaction(self,reaction):
         self.add_species(reaction.reactants+reaction.products+reaction.enzymes)
-        self.reaction += [reaction]
+        self.reactions += [reaction]
         return self
     
     def add_species(self,_species):
@@ -37,6 +38,7 @@ class DigilabModelTemplate(object):
                 staging[species] = species
         self._species.update(staging)
         self.species = self._species.keys()
+        return self
     
     def add_compartment(self,compartments):
         staging = {}
@@ -49,7 +51,24 @@ class DigilabModelTemplate(object):
                 staging[compartment] = compartment
         self._compartments.update(staging)
         self.compartments = self._compartments.keys()
+        return self
     
+    def get_comp_two_species(self,df):
+        if df.shape[0] == 0:
+            return []
+        comp1 = self.compartment[df.loc[:,'i_x'].values.astype(int)]
+        comp2 = self.compartment[df.loc[:,'i_x'].values.astype(int)]
+        comp = np.min((comp1,comp2),axis=0)
+        return comp
+    
+    def classify_reaction(self,reaction):
+        raise NotImplemented('classify_reaction not implemented.')
+    
+    def compile_model(self):
+        self.reactions = [self.classify_reaction(reaction) for reaction in self.reactions]
+        for reaction in self.reactions:
+            reaction.compile(self)
+            
     def reset_params(self):
         raise NotImplemented('reset_parameter not implemented.')
     
@@ -59,45 +78,3 @@ class DigilabModelTemplate(object):
     def get_odefun(self):
         raise NotImplemented('get_odefun not implemented for this model. Must return a function that takes in t, y and model as inputs.')
     
-class DigilabModel(DigilabModelTemplate):
-    def sigma(self,t):
-        return np.asarray([0,0,0,0])
-    
-    def reset_params(self):
-        raw_params = {}
-        raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k','p'])
-        raw_params['k2'] = pd.DataFrame(columns=['y','i_x','j_x','k','p'])
-        raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','Km','p'])
-        raw_params['H'] = pd.DataFrame(columns=['y','i_x','E','k','K','n','p'])
-        self.raw_params = raw_params
-        self.consolidate_params()
-        return self
-    
-    def consolidate_params(self):
-        self.params = deepcopy(self.raw_params)
-        tmp_df = self.params['k1']
-        tmp_df.loc[:,'val'] = tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
-        tmp_df = self.params['k2']
-        comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
-        tmp_df = self.params['Km']
-        comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'p']/(tmp_df.loc[:,'Km']*self.compartment[tmp_df.loc[:,'y'].values.astype(int)])
-        tmp_df = self.params['H']
-        comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
-        return self
-        
-    def get_comp_two_species(self,df):
-        if df.shape[0] == 0:
-            return []
-        comp1 = self.compartment[df.loc[:,'i_x'].values.astype(int)]
-        comp2 = self.compartment[df.loc[:,'i_x'].values.astype(int)]
-        comp = np.min((comp1,comp2),axis=0)
-        return comp
-        
-    def get_odefun(self):
-        return dQSSA
-    
-def sigma(t):
-    return t
