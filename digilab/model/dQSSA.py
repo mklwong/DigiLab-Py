@@ -7,7 +7,7 @@ Created on Sun Aug 19 22:12:58 2018
 
 import pandas as pd
 from digilab.model import DigilabModel
-from digilab.model.elements import Parameter
+from digilab.model.elements import Parameter, Species
 import numpy as np
 from copy import deepcopy
 
@@ -18,7 +18,7 @@ class DigilabModeldQSSA(DigilabModel):
     def reset_params(self):
         raw_params = {}
         raw_params['k0'] = pd.DataFrame(columns=['y','k'])
-        raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k'])
+        raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k','r'])
         raw_params['k2'] = pd.DataFrame(columns=['y','i_x','j_x','k','r'])
         raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','K','r'])
         raw_params['H']  = pd.DataFrame(columns=['y','i_x','j_x','k','K','n','r'])
@@ -125,10 +125,12 @@ def unimolecular(self,model):
     k1 = Parameter(name='k1|{}'.format(rxn=self))
     df1 = pd.DataFrame({'y':self.products,\
                        'i_x':self.reactant*len(self.products),\
-                       'k':[k1]*len(self.products)})
+                       'k':[k1]*len(self.products),\
+                       'r':[1]*len(self.products)})
     df2 = pd.DataFrame({'y':self.reactant,\
                        'i_x':self.reactant,\
-                       'k':[-k1]})
+                       'k':[-k1],\
+                       'r':[1]})
     df = pd.concat([df1,df2],axis=0)
     self.parameters = [k1]
     model.parameters += self.parameters
@@ -136,23 +138,38 @@ def unimolecular(self,model):
     return self
 
 def enzymatic_unimolecular(self,model):
-    pass
-
+    self.complex = [Species(name='{}-{}'.format(self.reactants[0],self.enzymes[0]),compartment=self.enzymes[0]['compartment'])]
+    model.add_species(self.complex[0])
+    kc = Parameter(name='kc|{}'.format(rxn=self))
+    df1 = pd.DataFrame({'y':self.products+[self.reactants[0]],\
+                       'i_x':self.complex*(len(self.products)+1),\
+                       'k':[kc]*len(self.products)+[-kc],\
+                       'r':[self.xsection_ratio]*(len(self.products)+1)})
+    Km = Parameter(name='Km|{}'.format(rxn=self))
+    df2 = pd.DataFrame({'y' :[self.complex]*2+[self.reactants[0]]*2+[self.enzymes[0]]*2,\
+                       'i_x':[self.reactants[0],self.enzymes[0]]*3,\
+                       'i_y':[self.enzymes[0],self.reactants[0]]*3,\
+                       'K':[Km]*6,\
+                       'r':[self.xsection_ratio]*6})
+    self.parameters = [kc,Km]
+    model.parameters += self.parameters
+    model.raw_params['k1'] = pd.concat([model.raw_params['k1'],df1],axis=0)
+    model.raw_params['Km'] = pd.concat([model.raw_params['Km'],df2],axis=0)
+    return self
+    
 def hill_unimolecular(self,model):
     pass
 
 def bimolecular(self,model):
     k2 = Parameter(name='k2|{}'.format(rxn=self))
-    df1 = pd.DataFrame({'y':self.products,\
-                       'i_x':self.reactant*len(self.products),\
-                       'k':[k2]*len(self.products)})
-    df2 = pd.DataFrame({'y':self.reactant,\
-                       'i_x':self.reactant,\
-                       'k':[-k2]})
-    df = pd.concat([df1,df2],axis=0)
+    df = pd.DataFrame({'y':self.products,\
+                       'i_x':[self.reactant[0]]*(len(self.products)+2),\
+                       'i_y':[self.reactant[1]]*(len(self.products)+2),\
+                       'k':[k2]*len(self.products)+[-k2]*2,\
+                       'r':[self.xsection_ratio]*(len(self.products)+2)})
     self.parameters = [k2]
     model.parameters += self.parameters
-    model.raw_params['k1'] = pd.concat([model.raw_params['k1'],df],axis=0)
+    model.raw_params['k2'] = pd.concat([model.raw_params['k2'],df],axis=0)
     return self
 
 def make_matrix(df,template):
