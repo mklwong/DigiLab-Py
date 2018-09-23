@@ -10,7 +10,6 @@ from digilab.model import DigilabModel
 from digilab.model.elements import Parameter
 import numpy as np
 from copy import deepcopy
-import types
 
 class DigilabModeldQSSA(DigilabModel):
     def sigma(self,t):
@@ -19,10 +18,10 @@ class DigilabModeldQSSA(DigilabModel):
     def reset_params(self):
         raw_params = {}
         raw_params['k0'] = pd.DataFrame(columns=['y','k'])
-        raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k','p'])
-        raw_params['k2'] = pd.DataFrame(columns=['y','i_x','j_x','k','p'])
-        raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','K','p'])
-        raw_params['H'] = pd.DataFrame(columns=['y','i_x','E','k','K','n','p'])
+        raw_params['k1'] = pd.DataFrame(columns=['y','i_x','k'])
+        raw_params['k2'] = pd.DataFrame(columns=['y','i_x','j_x','k','r'])
+        raw_params['Km'] = pd.DataFrame(columns=['y','i_x','j_x','K','r'])
+        raw_params['H']  = pd.DataFrame(columns=['y','i_x','j_x','k','K','n','r'])
         self.raw_params = raw_params
         self.consolidate_params()
         return self
@@ -66,16 +65,16 @@ class DigilabModeldQSSA(DigilabModel):
     def consolidate_params(self):
         self.params = deepcopy(self.raw_params)
         tmp_df = self.params['k1']
-        tmp_df.loc[:,'val'] = tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
+        tmp_df.loc[:,'val'] = tmp_df.loc[:,'k']*tmp_df.loc[:,'r']
         tmp_df = self.params['k2']
         comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
+        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'r']
         tmp_df = self.params['Km']
         comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'p']/(tmp_df.loc[:,'m']*self.compartment[tmp_df.loc[:,'y'].values.astype(int)])
+        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'r']/(tmp_df.loc[:,'m']*self.compartment[tmp_df.loc[:,'y'].values.astype(int)])
         tmp_df = self.params['H']
         comp = self.get_comp_two_species(tmp_df)
-        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'p']
+        tmp_df.loc[:,'val'] = comp*tmp_df.loc[:,'k']*tmp_df.loc[:,'r']
         return self
         
     def equation(self,t,y):
@@ -97,7 +96,7 @@ class DigilabModeldQSSA(DigilabModel):
          
         # Hill term matrix     
         H = self.params['H'].copy()
-        H_ratio = np.power(y[H.loc[:,'E']]/H.loc[:,'K'],H.loc[:,'n'])
+        H_ratio = np.power(y[H.loc[:,'j_x']]/H.loc[:,'K'],H.loc[:,'n'])
         H.loc[:,'val'] = H.loc[:,'val']*H_ratio/(H_ratio+1)
         H = make_matrix(H,M_template)
         top = np.dot(k1,y)+np.dot(k2+H,y)/self.compartment + self.sigma(t)
@@ -114,14 +113,27 @@ def synthesis(self,model):
 
 def enzymatic_synthesis(self,model):
     k0 = Parameter(name='k0|{}'.format(rxn=self))
-    df = pd.DataFrame({'y':self.products,'i_x':self.enzymes*len(self.products),'k':[k0]*len(self.products)})
+    df = pd.DataFrame({'y':self.products,\
+                       'i_x':self.enzymes*len(self.products),\
+                       'k':[k0]*len(self.products)})
     self.parameters = [k0]
     model.parameters += self.parameters
     model.raw_params['k1'] = pd.concat([model.raw_params['k1'],df],axis=0)
     return self
 
 def unimolecular(self,model):
-    pass
+    k1 = Parameter(name='k1|{}'.format(rxn=self))
+    df1 = pd.DataFrame({'y':self.products,\
+                       'i_x':self.reactant*len(self.products),\
+                       'k':[k1]*len(self.products)})
+    df2 = pd.DataFrame({'y':self.reactant,\
+                       'i_x':self.reactant,\
+                       'k':[-k1]})
+    df = pd.concat([df1,df2],axis=0)
+    self.parameters = [k1]
+    model.parameters += self.parameters
+    model.raw_params['k1'] = pd.concat([model.raw_params['k1'],df],axis=0)
+    return self
 
 def enzymatic_unimolecular(self,model):
     pass
@@ -130,7 +142,18 @@ def hill_unimolecular(self,model):
     pass
 
 def bimolecular(self,model):
-    pass
+    k2 = Parameter(name='k2|{}'.format(rxn=self))
+    df1 = pd.DataFrame({'y':self.products,\
+                       'i_x':self.reactant*len(self.products),\
+                       'k':[k2]*len(self.products)})
+    df2 = pd.DataFrame({'y':self.reactant,\
+                       'i_x':self.reactant,\
+                       'k':[-k2]})
+    df = pd.concat([df1,df2],axis=0)
+    self.parameters = [k2]
+    model.parameters += self.parameters
+    model.raw_params['k1'] = pd.concat([model.raw_params['k1'],df],axis=0)
+    return self
 
 def make_matrix(df,template):
     M = template.copy()

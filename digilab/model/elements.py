@@ -160,7 +160,7 @@ class Parameter(CellElements):
     
 class Reaction(DigilabElement):
     compile = None
-    def __init__(self,reactants,products,kinetic_law='infer',enzymes=[],**kwargs):
+    def __init__(self,reactants,products,kinetic_law='infer',enzymes=[],xsection_ratio=1,**kwargs):
         for x in reactants + products + enzymes:
             assert(isinstance(x,Species))
         self.reactants = reactants
@@ -169,6 +169,7 @@ class Reaction(DigilabElement):
         assert(isinstance(kinetic_law,string_types))
         self.kinetic_law = kinetic_law
         self.extras = kwargs
+        self.xsection_ratio = xsection_ratio
     
     def apply_rule(self,func):
         self.compile = types.MethodType(func,self)
